@@ -1,0 +1,8 @@
+node_modules/
+.env
+.next/
+*.log
+
+# write-only client credentials vault (plaintext) — never commit
+vault/
+*.jsonl
