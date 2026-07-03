@@ -1,13 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { CalendarClock, CheckCircle2, FileText, Lock, XCircle } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { CalendarClock, CheckCircle2, FileText, Loader2, Lock, Paperclip, Trash2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { FileDropzone } from '@/components/ui/file-dropzone';
 import { Modal } from '@/components/ui/modal';
 import { Textarea } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { fmtFullDate, fmtTime } from '@/lib/dateUtils';
-import { coverProxyUrl } from '@/lib/api';
+import * as api from '@/lib/api';
+import { coverProxyUrl, type Attachment } from '@/lib/api';
+import { logger } from '@/lib/logger';
 import type { Meeting, MeetingStatus } from '@/types/meeting';
 
 interface MeetingDetailModalProps {
@@ -25,14 +28,51 @@ export function MeetingDetailModal({ meeting, open, onClose, isAdmin, onChangeSt
   const [error, setError] = useState<string | null>(null);
   const [mediaError, setMediaError] = useState(false);
 
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [attError, setAttError] = useState<string | null>(null);
+
+  const meetingId = meeting?.id;
+  const loadAttachments = useCallback(() => {
+    if (!meetingId) return;
+    api.listAttachments(meetingId).then(setAttachments).catch((e) => logger.warn('listAttachments failed', e));
+  }, [meetingId]);
+
   useEffect(() => {
     if (open) {
       setRejecting(false);
       setReason(meeting?.rejectReason ?? '');
       setError(null);
       setMediaError(false);
+      setAttError(null);
+      setAttachments([]);
+      loadAttachments();
     }
-  }, [open, meeting]);
+  }, [open, meeting, loadAttachments]);
+
+  async function onUploadFiles(files: File[]) {
+    if (!meetingId) return;
+    setUploading(true);
+    setAttError(null);
+    try {
+      for (const f of files) await api.uploadAttachment(meetingId, f);
+      loadAttachments();
+    } catch (e) {
+      setAttError(e instanceof Error ? e.message : 'Falha no upload');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function onDeleteAttachment(attId: number) {
+    if (!meetingId) return;
+    try {
+      await api.deleteAttachment(meetingId, attId);
+      setAttachments((prev) => prev.filter((a) => a.id !== attId));
+    } catch (e) {
+      setAttError(e instanceof Error ? e.message : 'Falha ao remover');
+    }
+  }
 
   if (!meeting) return null;
 
@@ -125,6 +165,59 @@ export function MeetingDetailModal({ meeting, open, onClose, isAdmin, onChangeSt
           </div>
         )}
 
+        {/* attachments — admin sees it always (can attach at any time); client sees it when rejecting or if there are any */}
+        {(isAdmin || attachments.length > 0 || rejecting) && (
+          <div className="border-t border-slate-100 pt-4">
+            <p className="mb-2 flex items-center gap-1.5 text-sm font-medium text-slate-700">
+              <Paperclip size={15} /> Anexos
+              {attachments.length > 0 && (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{attachments.length}</span>
+              )}
+            </p>
+            {attachments.length > 0 && (
+              <div className="mb-2 grid grid-cols-3 gap-2">
+                {attachments.map((a) => (
+                  <div key={a.id} className="group relative overflow-hidden rounded-lg border border-slate-200 bg-slate-900">
+                    {a.media_type === 'video' ? (
+                      <video src={a.url ?? undefined} controls playsInline className="aspect-square w-full object-cover" />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={a.url ?? undefined} alt="anexo" className="aspect-square w-full object-cover" />
+                    )}
+                    {(isAdmin || clientCanAct) && (
+                      <button
+                        onClick={() => onDeleteAttachment(a.id)}
+                        title="Remover"
+                        className="absolute right-1 top-1 rounded-md bg-black/60 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* admin may attach photos/videos at any time; client may attach while rejecting */}
+            {(isAdmin || clientCanAct && rejecting) && (
+              <div className="flex flex-col gap-1.5">
+                <FileDropzone
+                  onFiles={onUploadFiles}
+                  accept="image/*,video/*"
+                  disabled={uploading}
+                  label={uploading ? 'Enviando…' : isAdmin ? 'Anexar fotos/vídeos (jpeg, mp4)' : 'Arraste ou clique para anexar provas'}
+                />
+                {uploading && (
+                  <p className="flex items-center gap-1 text-xs text-slate-400">
+                    <Loader2 size={12} className="animate-spin" /> enviando…
+                  </p>
+                )}
+                {attError && <p className="text-xs text-rose-600">{attError}</p>}
+              </div>
+            )}
+          </div>
+        )}
+
         {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
 
         {/* approval area — only when there is media to review */}
@@ -144,7 +237,11 @@ export function MeetingDetailModal({ meeting, open, onClose, isAdmin, onChangeSt
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="Explique por que está reprovando…"
                 />
-                <div className="flex justify-end gap-2">
+                <p className="text-xs text-slate-400">
+                  Anexe as provas na seção “Anexos” acima antes de confirmar.
+                </p>
+
+                <div className="mt-1 flex justify-end gap-2">
                   <Button variant="secondary" onClick={() => setRejecting(false)} disabled={busy}>
                     Voltar
                   </Button>
