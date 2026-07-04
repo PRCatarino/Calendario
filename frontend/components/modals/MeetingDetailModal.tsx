@@ -55,7 +55,7 @@ export function MeetingDetailModal({ meeting, open, onClose, isAdmin, onChangeSt
     setUploading(true);
     setAttError(null);
     try {
-      for (const f of files) await api.uploadAttachment(meetingId, f);
+      await Promise.all(files.map((f) => api.uploadAttachment(meetingId, f)));
       loadAttachments();
     } catch (e) {
       setAttError(e instanceof Error ? e.message : 'Falha no upload');

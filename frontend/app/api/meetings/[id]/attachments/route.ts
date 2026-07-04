@@ -33,11 +33,14 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   const a = await authorize(req, params.id);
   if (a.error) return a.error;
 
+  const t0 = Date.now();
   const rows = await query<AttRow>(
     `select id, path, media_type, mime, size_bytes, uploaded_by, created_at
      from meeting_attachments where meeting_id = $1 order by created_at`,
     [params.id],
   );
+  const t1 = Date.now();
+
   const out = await Promise.all(
     rows.map(async (r) => ({
       id: r.id,
@@ -46,9 +49,16 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       size_bytes: r.size_bytes,
       uploaded_by: r.uploaded_by,
       created_at: r.created_at,
-      url: await signedUrl(ATTACHMENTS_BUCKET, r.path, 3600).catch(() => null),
+      url: await signedUrl(ATTACHMENTS_BUCKET, r.path, 3600).catch((e) => {
+        console.error(`[attachments] signedUrl failed for path=${r.path}`, e?.message ?? e);
+        return null;
+      }),
     })),
   );
+  const t2 = Date.now();
+  if (rows.length > 0) {
+    console.log(`[attachments] GET meeting=${params.id}: db=${t1 - t0}ms signedUrls=${t2 - t1}ms total=${t2 - t0}ms (${rows.length} items)`);
+  }
   return json(out);
 }
 
