@@ -1,4 +1,7 @@
-import { Pool } from 'pg';
+import { Pool, types } from 'pg';
+
+// return bigint (int8, OID 20) as JS number — ids fit safely and the frontend expects numbers
+types.setTypeParser(20, (v) => parseInt(v, 10));
 
 // Postgres pool for Supabase. Use the Transaction pooler URL (port 6543) in DATABASE_URL
 // so it plays well with serverless. Keep the pool small.
