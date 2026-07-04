@@ -1,14 +1,16 @@
 import * as googleCal from '@/lib/server/google';
-import { isResponse, requireAdmin } from '@/lib/server/http';
+import { isResponse, requireUser } from '@/lib/server/http';
 
 export const runtime = 'nodejs';
 
-// browser navigation → token via ?t= (handled by requireAdmin/getAuth)
+// any logged-in user connects THEIR own Google Calendar.
+// token comes via ?t= (browser navigation); state carries the account id.
 export async function GET(req: Request) {
-  const admin = requireAdmin(req);
-  if (isResponse(admin)) return admin;
+  const user = requireUser(req);
+  if (isResponse(user)) return user;
   if (!googleCal.isConfigured()) {
-    return new Response('Google OAuth nao configurado — defina GOOGLE_CLIENT_ID/SECRET', { status: 400 });
+    return new Response('Google OAuth nao configurado', { status: 400 });
   }
-  return Response.redirect(googleCal.authUrl(), 302);
+  const state = googleCal.signState(user.id);
+  return Response.redirect(googleCal.authUrl(state), 302);
 }

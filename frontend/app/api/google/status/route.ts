@@ -1,12 +1,12 @@
 import * as googleCal from '@/lib/server/google';
-import { isResponse, json, requireAdmin } from '@/lib/server/http';
+import { isResponse, json, requireUser } from '@/lib/server/http';
 
 export const runtime = 'nodejs';
 
+// per-user: is THIS account connected to Google?
 export async function GET(req: Request) {
-  const admin = requireAdmin(req);
-  if (isResponse(admin)) return admin;
+  const user = requireUser(req);
+  if (isResponse(user)) return user;
   if (!googleCal.isConfigured()) return json({ configured: false, connected: false });
-  const client = await googleCal.authedClient();
-  return json({ configured: true, connected: Boolean(client) });
+  return json({ configured: true, connected: await googleCal.isConnected(user.id) });
 }

@@ -9,19 +9,16 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   const admin = requireAdmin(req);
   if (isResponse(admin)) return admin;
   try {
-    const row = await one<{ google_event_id: string | null; cover_frame_path: string | null }>(
-      `select google_event_id, cover_frame_path from meetings where id = $1`,
+    const row = await one<{ cover_frame_path: string | null }>(
+      `select cover_frame_path from meetings where id = $1`,
       [params.id],
     );
-    await query(`delete from meetings where id = $1`, [params.id]);
+    // delete Google events across all connected calendars BEFORE the row (cascade) goes away
+    try { await googleCal.deleteMeetingEvents(Number(params.id)); } catch (e) { console.error('google delete failed:', (e as Error).message); }
 
+    await query(`delete from meetings where id = $1`, [params.id]);
     if (row?.cover_frame_path) {
       await getSupabase().storage.from(COVERS_BUCKET).remove([row.cover_frame_path]).catch(() => {});
-    }
-    try {
-      await googleCal.deleteEvent(row?.google_event_id ?? null);
-    } catch (e) {
-      console.error('google delete failed:', (e as Error).message);
     }
     return new Response(null, { status: 204 });
   } catch (e) {
