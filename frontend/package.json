@@ -2,6 +2,9 @@
   "name": "calendario-frontend",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev -p 4173",
     "build": "next build",
@@ -10,6 +13,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",
+    "@vercel/functions": "^3.7.5",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",

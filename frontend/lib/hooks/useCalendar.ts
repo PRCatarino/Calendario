@@ -73,6 +73,12 @@ export function useCalendar() {
   useEffect(() => { reload(); }, [reload]);
   useEffect(() => { reloadUpcoming(); }, [reloadUpcoming]);
 
+  // auto-refresh the whole calendar every 1 minute
+  useEffect(() => {
+    const t = setInterval(() => { reload(); reloadUpcoming(); }, 60_000);
+    return () => clearInterval(t);
+  }, [reload, reloadUpcoming]);
+
   const selected = useMemo(
     () => [...meetings, ...upcoming].find((m) => m.id === selectedId) ?? null,
     [meetings, upcoming, selectedId],
@@ -115,13 +121,12 @@ export function useCalendar() {
       fd.set('ends_at', new Date(`${values.date}T${values.endTime}`).toISOString());
       fd.set('notes', values.notes ?? '');
       if (values.coverUrl) fd.set('cover_url', values.coverUrl);
-      const created = await api.createMeeting(fd);
-      // for videos, grab a mid-video frame as the cover (best-effort, non-blocking failure)
-      if (created.cover_type === 'video') {
-        await captureAndStoreFrame(String(created.id));
-      }
+      await api.createMeeting(fd);
+      // card shows immediately; cover-type/Google are resolved server-side in the
+      // background, so refresh again shortly to pick them up
       reload();
       reloadUpcoming();
+      setTimeout(() => { reload(); reloadUpcoming(); }, 2500);
     },
     [clients, reload, reloadUpcoming],
   );

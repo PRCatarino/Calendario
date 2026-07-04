@@ -1,6 +1,7 @@
 'use client';
 
 import { CalendarDays, LogOut, Plus, UserPlus } from 'lucide-react';
+import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ViewToggle } from '@/components/ui/view-toggle';
 import type { CalendarView } from '@/types/meeting';
@@ -11,6 +12,8 @@ interface HeaderProps {
   onViewChange: (v: CalendarView) => void;
   onNewMeeting: () => void;
   onNewClient: () => void;
+  onProfile: () => void;
+  avatarUrl?: string | null;
   user: AuthUser;
   isAdmin: boolean;
   clients: ClientAccount[];
@@ -24,6 +27,8 @@ export function Header({
   onViewChange,
   onNewMeeting,
   onNewClient,
+  onProfile,
+  avatarUrl,
   user,
   isAdmin,
   clients,
@@ -79,10 +84,17 @@ export function Header({
         )}
 
         <div className="flex items-center gap-2 border-l border-slate-200 pl-3">
-          <div className="hidden text-right sm:block">
-            <p className="text-sm font-medium leading-tight text-slate-700">{user.name}</p>
-            <p className="text-xs text-slate-400">{user.role === 'ADMIN' ? 'Administrador' : 'Cliente'}</p>
-          </div>
+          <button
+            onClick={onProfile}
+            title="Meu perfil"
+            className="flex items-center gap-2 rounded-xl px-1.5 py-1 transition-colors hover:bg-slate-100"
+          >
+            <Avatar src={avatarUrl ?? undefined} alt={user.name} size={32} />
+            <div className="hidden text-right sm:block">
+              <p className="text-sm font-medium leading-tight text-slate-700">{user.name}</p>
+              <p className="text-xs text-slate-400">{user.role === 'ADMIN' ? 'Administrador' : 'Cliente'}</p>
+            </div>
+          </button>
           <Button variant="ghost" size="icon" onClick={onLogout} aria-label="Sair" title="Sair">
             <LogOut size={18} />
           </Button>

@@ -10,10 +10,12 @@ import { WeekView } from '@/components/calendar/WeekView';
 import { NewMeetingModal } from '@/components/modals/NewMeetingModal';
 import { NewClientModal } from '@/components/modals/NewClientModal';
 import { MeetingDetailModal } from '@/components/modals/MeetingDetailModal';
+import { ProfileModal } from '@/components/modals/ProfileModal';
 import { SelectedMeetingCard } from '@/components/sidebar/SelectedMeetingCard';
 import { UpcomingMeetings } from '@/components/sidebar/UpcomingMeetings';
 import { GoogleSyncCard } from '@/components/sidebar/GoogleSyncCard';
 import { Card } from '@/components/ui/card';
+import * as api from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { useCalendar } from '@/lib/hooks/useCalendar';
 
@@ -37,7 +39,12 @@ function CalendarApp({ onLogout }: { onLogout: () => void }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [clientModalOpen, setClientModalOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [prefill, setPrefill] = useState<{ date?: string; startTime?: string }>({});
+
+  const loadAvatar = () => api.getProfile().then((p) => setAvatarUrl(p.avatarUrl)).catch(() => {});
+  useEffect(() => { loadAvatar(); }, []);
 
   function openDetail(id: string) {
     cal.selectMeeting(id);
@@ -76,6 +83,8 @@ function CalendarApp({ onLogout }: { onLogout: () => void }) {
         onViewChange={cal.setView}
         onNewMeeting={openNew}
         onNewClient={() => setClientModalOpen(true)}
+        onProfile={() => setProfileOpen(true)}
+        avatarUrl={avatarUrl}
         user={cal.user!}
         isAdmin={cal.isAdmin}
         clients={cal.clients}
@@ -129,7 +138,7 @@ function CalendarApp({ onLogout }: { onLogout: () => void }) {
             onSelect={cal.selectMeeting}
             onOpen={openDetail}
           />
-          {cal.isAdmin && <GoogleSyncCard />}
+          <GoogleSyncCard isAdmin={cal.isAdmin} />
         </aside>
       </main>
 
@@ -158,6 +167,8 @@ function CalendarApp({ onLogout }: { onLogout: () => void }) {
         isAdmin={cal.isAdmin}
         onChangeStatus={cal.updateStatus}
       />
+
+      <ProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} onUpdated={loadAvatar} />
     </div>
   );
 }

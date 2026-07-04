@@ -22,10 +22,10 @@ export function SelectedMeetingCard({ meeting }: { meeting: Meeting | null }) {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {meeting.coverUrl && (
+            {meeting.coverThumbUrl && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={meeting.imageUrl}
+                src={meeting.coverThumbUrl}
                 alt={`Capa — ${meeting.title}`}
                 className="h-32 w-full rounded-xl object-cover ring-1 ring-slate-100"
               />
@@ -44,6 +44,12 @@ export function SelectedMeetingCard({ meeting }: { meeting: Meeting | null }) {
             </div>
 
             <StatusBadge status={meeting.status} className="self-start" />
+
+            {meeting.status === 'REJECTED' && meeting.rejectReason && (
+              <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                <span className="font-semibold">Reprovada — motivo:</span> {meeting.rejectReason}
+              </div>
+            )}
 
             <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
               <CalendarClock size={16} className="shrink-0 text-slate-400" />

@@ -1,9 +1,11 @@
 import { logger } from '@/lib/logger';
 import type { Meeting, MeetingColor, MeetingStatus } from '@/types/meeting';
 
-// '' = same-origin (Next API routes on Vercel). Default keeps pointing at the local
-// Express/Oracle backend so nothing breaks locally until you flip the env.
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+// Production (Vercel) uses same-origin Next API routes ('').
+// Local dev points at the Express/Oracle backend. Override with NEXT_PUBLIC_API_URL.
+const API =
+  process.env.NEXT_PUBLIC_API_URL ??
+  (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:4000');
 const TOKEN_KEY = 'cal.token';
 
 export interface AuthUser {
@@ -106,6 +108,7 @@ interface ApiMeeting {
   image_url: string | null;
   cover_url: string | null;
   cover_type: 'image' | 'video' | null;
+  client_avatar_url?: string | null;
   status: MeetingStatus;
   reject_reason: string | null;
 }
@@ -124,11 +127,10 @@ function mapMeeting(m: ApiMeeting): Meeting {
     start: new Date(m.starts_at),
     end: new Date(m.ends_at),
     notes: m.notes ?? '',
-    // cover frame (proxied thumbnail) for chips/cards — a video frame or the image;
-    // avatar fallback when no cover
-    imageUrl: m.cover_url
-      ? coverProxyUrl(String(m.id), true)
-      : `https://i.pravatar.cc/150?u=${encodeURIComponent(m.client_name)}-${m.client_id}`,
+    // round avatar = client's logo/profile photo (falls back to initials in <Avatar>)
+    imageUrl: m.client_avatar_url ?? '',
+    // banner/content = the meeting cover (Drive thumbnail / video frame)
+    coverThumbUrl: m.cover_url ? coverProxyUrl(String(m.id), true) : undefined,
     coverUrl: m.cover_url ?? undefined,
     coverType: m.cover_type === 'video' ? 'video' : 'image',
     hasFrame: m.has_image,
@@ -182,6 +184,61 @@ export function googleConnectUrl(): string {
 /** push meetings not yet on Google Calendar */
 export async function googleSync() {
   return req<{ synced: number; failed: number; total: number }>('/api/google/sync', { method: 'POST' });
+}
+
+// ---- profile ----
+export interface Profile {
+  id: number;
+  name: string;
+  username: string;
+  role: 'ADMIN' | 'CLIENT';
+  email: string | null;
+  phone: string | null;
+  avatarUrl: string | null;
+}
+
+export async function getProfile() {
+  return req<Profile>('/api/profile');
+}
+export async function updateProfile(body: { name?: string; email?: string; phone?: string }) {
+  return req<{ ok: true }>('/api/profile', { method: 'PATCH', body: JSON.stringify(body) });
+}
+export async function uploadAvatar(file: File) {
+  const fd = new FormData();
+  fd.set('file', file);
+  return req<{ ok: true }>('/api/profile/avatar', { method: 'POST', body: fd });
+}
+export async function changePassword(currentPassword: string, newPassword: string) {
+  return req<{ ok: true }>('/api/profile/password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
+// ---- meeting attachments ----
+export interface Attachment {
+  id: number;
+  media_type: 'image' | 'video';
+  mime: string | null;
+  size_bytes: number | null;
+  uploaded_by: number | null;
+  created_at: string;
+  url: string | null;
+}
+
+export async function listAttachments(meetingId: string) {
+  return req<Attachment[]>(`/api/meetings/${meetingId}/attachments`);
+}
+export async function uploadAttachment(meetingId: string, file: File) {
+  const fd = new FormData();
+  fd.set('file', file);
+  return req<{ id: number; media_type: 'image' | 'video' }>(`/api/meetings/${meetingId}/attachments`, {
+    method: 'POST',
+    body: fd,
+  });
+}
+export async function deleteAttachment(meetingId: string, attId: number) {
+  return req<void>(`/api/meetings/${meetingId}/attachments/${attId}`, { method: 'DELETE' });
 }
 
 export async function updateMeetingStatus(id: string, status: MeetingStatus, reason?: string) {

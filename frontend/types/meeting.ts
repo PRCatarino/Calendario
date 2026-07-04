@@ -6,7 +6,10 @@ export interface Meeting {
   start: Date;
   end: Date;
   notes: string;
+  /** round avatar = client logo/profile photo */
   imageUrl: string;
+  /** banner/content = meeting cover thumbnail (Drive image / video frame) */
+  coverThumbUrl?: string;
   /** Drive cover URL (capa da reunião): thumbnail (image) or preview (video) */
   coverUrl?: string;
   coverType: 'image' | 'video';

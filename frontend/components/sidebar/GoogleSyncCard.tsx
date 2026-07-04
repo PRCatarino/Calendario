@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import * as api from '@/lib/api';
 import { logger } from '@/lib/logger';
 
-export function GoogleSyncCard() {
+export function GoogleSyncCard({ isAdmin = false }: { isAdmin?: boolean }) {
   const [status, setStatus] = useState<api.GoogleStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState<'connected' | 'denied' | 'error' | null>(null);
@@ -106,7 +106,9 @@ export function GoogleSyncCard() {
               <span>Google Calendar conectado.</span>
             </div>
             <p className="text-xs text-slate-400">
-              Novas reuniões são enviadas automaticamente ao Google Calendar.
+              {isAdmin
+                ? 'Novas reuniões são enviadas automaticamente ao Google Calendar.'
+                : 'Suas reuniões aparecem automaticamente no seu Google Calendar.'}
             </p>
             <Button variant="outline" className="w-full" onClick={() => sync(false)} disabled={syncing}>
               <RefreshCw size={15} className={syncing ? 'animate-spin' : ''} />
